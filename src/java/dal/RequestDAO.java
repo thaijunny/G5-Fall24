@@ -18,7 +18,9 @@ import java.util.ArrayList;
 import java.util.List;
 import model.Mentee;
 import model.Mentor;
+import model.MentorSchedule;
 import model.Request;
+import model.RequestSlot;
 import model.Skill;
 import model.enums.RequestStatus;
 
@@ -113,6 +115,131 @@ public class RequestDAO {
         return cvs;
     }
 
+    public List<Request> getRequestsWithParam(String searchParam, String status, java.sql.Date startDate, java.sql.Date endDate) {
+        List<Request> cvs = new ArrayList<>();
+        List<Object> params = new ArrayList<>();
+        Connection con = null;
+        MentorDAO mentorDAO = new MentorDAO();
+        MenteeDAO menteeDAO = new MenteeDAO();
+        SkillDAO skillDAO = new SkillDAO();
+
+        try {
+            con = DBContext.getConnection();
+            StringBuilder query = new StringBuilder();
+            query.append("""
+                SELECT r.*, u.email, u.fullName, u.account 
+                FROM request r 
+                JOIN mentor m ON m.MentorID = r.MentorID
+                JOIN user u ON u.userID = m.userID 
+                WHERE 1 = 1 """);
+
+            // Search by fullName, email, account, or title
+            if (searchParam != null && !searchParam.trim().isEmpty()) {
+                query.append(" AND (u.fullName LIKE ? OR u.email LIKE ? OR u.account LIKE ? OR r.Title LIKE ?) ");
+                String searchPattern = "%" + searchParam.trim() + "%";
+                params.add(searchPattern);  // For fullName
+                params.add(searchPattern);  // For email
+                params.add(searchPattern);  // For account
+                params.add(searchPattern);  // For title
+            }
+
+            // Filter by status
+            if (status != null && !status.trim().isEmpty()) {
+                query.append(" AND r.Status = ? ");
+                params.add(status);
+            }
+
+            // Filter by date range (start date and end date)
+            if (startDate != null) {
+                query.append(" AND r.createDate >= ? ");
+                params.add(startDate);
+            }
+
+            if (endDate != null) {
+                query.append(" AND r.createDate <= ? ");
+                params.add(endDate);
+            }
+
+            // Order by creation date
+            query.append(" ORDER BY r.createDate DESC ");
+
+            // Prepare the SQL statement
+            PreparedStatement preparedStatement = con.prepareStatement(query.toString());
+
+            // Map the parameters to the prepared statement
+            mapParams(preparedStatement, params);
+
+            // Execute the query and process the result set
+            try ( ResultSet rs = preparedStatement.executeQuery()) {
+                while (rs.next()) {
+                    Request request = new Request();
+                    Mentor mentor = mentorDAO.getById(rs.getInt("MentorID"));
+                    Mentee mentee = menteeDAO.getById(rs.getInt("MenteeID"));
+                    request.setMentor(mentor);
+                    request.setMentee(mentee);
+                    Skill skill = skillDAO.getSkillById(rs.getInt("skillId"));
+                    request.setSkill(skill);
+                    request.setRequestId(rs.getInt("RequestID"));
+                    request.setContent(rs.getString("content"));
+                    request.setSubject(rs.getString("Title"));
+                    request.setStartDate(rs.getDate("start_date"));
+                    request.setEndDate(rs.getDate("end_date"));
+                    request.setCreateDate(rs.getDate("createDate"));
+                    request.setPrice(rs.getString("totalPrice"));
+                    request.setStatus(RequestStatus.valueOf(rs.getString("Status").toUpperCase()));
+                    cvs.add(request);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return cvs;
+    }
+
+     public List<RequestSlot> getRequestSlots(int requestID) {
+        List<RequestSlot> requests = new ArrayList<>();
+        Connection con = null;
+
+        try {
+            con = DBContext.getConnection();
+            StringBuilder query = new StringBuilder();
+            query.append("""
+            SELECT * FROM request_slots
+            WHERE RequestID = ? """);
+
+            // Prepare the SQL statement
+            PreparedStatement preparedStatement = con.prepareStatement(query.toString());
+
+            // Set the value for the first parameter (RequestID)
+            preparedStatement.setInt(1, requestID);
+
+            // Execute the query and process the result set
+            MentorScheduleDAO msdao = new MentorScheduleDAO();
+            RequestDAO rdao = new RequestDAO();
+            try ( ResultSet rs = preparedStatement.executeQuery()) {
+                while (rs.next()) {
+                    RequestSlot request = new RequestSlot();
+                    request.setId(rs.getInt("RequestSlotID"));
+                    // Fetch and set MentorSchedule by MentorScheduleID
+                    MentorSchedule ms = msdao.getMentorSchedulesByID(rs.getInt("MentorScheduleID"));
+                    request.setMentorSchedule(ms);
+
+                    // Fetch and set Request by RequestID
+                    Request r = rdao.getByID(rs.getInt("RequestID"));
+                    request.setRequest(r);
+
+                    // Add to list
+                    requests.add(request);
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println(e);
+        }
+
+        return requests;
+    }
+
     public Request getByID(int id) {
         String sql = "Select * from Request  where RequestID = ?";
         try ( Connection con = DBContext.getConnection();  PreparedStatement ps = con.prepareStatement(sql)) {
@@ -144,7 +271,8 @@ public class RequestDAO {
         }
         return null;
     }
-     public Request getLastesRequest() {
+
+    public Request getLastesRequest() {
         String sql = "Select * from Request order by requestID desc limit 1 ";
         try ( Connection con = DBContext.getConnection();  PreparedStatement ps = con.prepareStatement(sql)) {
             MentorDAO mentorDAO = new MentorDAO();
@@ -227,7 +355,10 @@ public class RequestDAO {
 
     public static void main(String[] args) {
         RequestDAO r = new RequestDAO();
-        System.out.println(r.getLastesRequest());
+       List<RequestSlot> l = r.getRequestSlots(10);
+        for (RequestSlot requestSlot : l) {
+            System.out.println(requestSlot);
+        }
     }
 
     public boolean insertRequestSchedule(int requestId, int slotId) {

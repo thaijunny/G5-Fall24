@@ -2,10 +2,11 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/JSP_Servlet/Servlet.java to edit this template
  */
-package controller;
+package controller.admin;
 
 import dal.MenteeDAO;
 import dal.MentorDAO;
+import dal.RequestDAO;
 import dal.UserDAO;
 import java.io.IOException;
 import jakarta.servlet.ServletException;
@@ -16,8 +17,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.security.SecureRandom;
 import java.util.List;
+import model.Request;
+import model.RequestSlot;
 import model.User;
-import model.UserDTO;
 import model.enums.Gender;
 import model.enums.Role;
 import model.enums.Status;
@@ -27,9 +29,9 @@ import utility.EmailUtility;
  *
  * @author ADMIN
  */
-@WebServlet(name = "UseManagement", urlPatterns = {"/admin/manage-user"})
+@WebServlet(name = "RequestDetail", urlPatterns = {"/admin/request-detail"})
 
-public class UseManagement extends HttpServlet {
+public class RequestDetail extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -38,51 +40,28 @@ public class UseManagement extends HttpServlet {
 
         User user = (User) session.getAttribute("account");
         if (user == null) {
-            session.setAttribute("notificationErr", "You musr login first");
+            session.setAttribute("notificationErr", "You must login first");
             response.sendRedirect("../login");
-
+            return;  // Stop further execution
         } else if (!user.getRole().equals(Role.ADMIN)) {
             response.sendRedirect("../login");
-
-        } else {
-            String searchParam = request.getParameter("search");
-            String statusParam = request.getParameter("status");
-            String roleParam = request.getParameter("role");
-            String pageParam = request.getParameter("page");
-            UserDAO userDAO = new UserDAO();
-            int page = 1; // Default to the first page
-            int pageSize = 6; // Set the desired page size
-            if (pageParam != null && !pageParam.isEmpty()) {
-                page = Integer.parseInt(pageParam);
-            }
-            String role = null;
-            String status = null;
-            if (statusParam != null && !statusParam.isEmpty()) {
-                status = statusParam;
-            }
-            if (roleParam != null && !roleParam.isEmpty()) {
-                role = roleParam;
-            }
-            List<UserDTO> users = userDAO.getAllUserWithParam(searchParam, status, role);
-            List<UserDTO> pagingUser = userDAO.Paging(users, page, pageSize);
-
-            for (UserDTO userDto : pagingUser) {
-                double totalStars = userDto.getTotalStar(); // Assume you have a method getTotalStars()
-                int wholeStars = (int) totalStars; // Calculate whole stars
-                boolean hasHalfStar = (totalStars - wholeStars) >= 0.5; // Determine if there's a half star
-
-                // Set the calculated values to userDTO
-                userDto.setWholeStars(wholeStars);
-                userDto.setHasHalfStar(hasHalfStar);
-            }
-            request.setAttribute("skills", pagingUser);
-            request.setAttribute("title", "User Management");
-            request.setAttribute("search", searchParam);
-            request.setAttribute("totalPages", users.size() % pageSize == 0 ? (users.size() / pageSize) : (users.size() / pageSize + 1));
-            request.setAttribute("currentPage", page);
-            request.getRequestDispatcher("user-management.jsp").forward(request, response);
+            return;  // Stop further execution
         }
 
+        // Get the search parameters
+        int id = Integer.parseInt(request.getParameter("id"));
+        RequestDAO requestDAO = new RequestDAO();
+        Request r = requestDAO.getByID(id);
+        // Default to page 1 and set pageSize
+        // Set attributes for JSP
+        request.setAttribute("title", "Request Detail");
+        request.setAttribute("request", r);
+     
+        List<RequestSlot> list = requestDAO.getRequestSlots(id);
+        request.setAttribute("slot", list);
+
+        // Forward the request to the JSP page
+        request.getRequestDispatcher("request-detail.jsp").forward(request, response);
     }
 
     @Override
@@ -142,7 +121,7 @@ public class UseManagement extends HttpServlet {
                     newUser.setPhoneNumber(phone);
                     newUser.setGender(Gender.valueOf(gender.toUpperCase()));
                     newUser.setAddress(address);
-                    newUser.setRole(Role.valueOf(role)); 
+                    newUser.setRole(Role.valueOf(role));
 
                     newUser.setStatus(Status.ACTIVE);
                     String account = generateAccountName(fullName);
@@ -150,7 +129,7 @@ public class UseManagement extends HttpServlet {
                     account = userDAO.getUniqueAccountName(account);
                     newUser.setAccount(account);
                     userDAO.insertUser(newUser, null);
-                     int userId = userDAO.getUserIdByEmail(email);
+                    int userId = userDAO.getUserIdByEmail(email);
 
                     if (role.equalsIgnoreCase("MENTOR")) {
                         MentorDAO mentorDAO = new MentorDAO();
@@ -160,7 +139,7 @@ public class UseManagement extends HttpServlet {
                         menteeDAO.insertMentee(userId);  // Insert into Mentee table
                     }
                     String subject = "Wellcome to Happy Programming";
-                    String message = "Hello " + fullName + ",\n\nYour account has been created with account: " + account + " and password is:  "+password;
+                    String message = "Hello " + fullName + ",\n\nYour account has been created with account: " + account + " and password is:  " + password;
 
                     EmailUtility.sendEmail(email, subject, message);
 
@@ -221,7 +200,7 @@ public class UseManagement extends HttpServlet {
         return lastName + initials.toUpperCase();
     }
 
-     private String generateRandomPassword() {
+    private String generateRandomPassword() {
         final String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
         SecureRandom random = new SecureRandom();
         StringBuilder password = new StringBuilder(10);

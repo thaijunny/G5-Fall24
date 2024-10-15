@@ -25,24 +25,23 @@ public class MentorScheduleDAO extends DBContext {
         // Using try-with-resources for auto-closing the resources
         String query = "SELECT * FROM Mentor_Schedule WHERE MentorID = ?";
 
-        try (Connection con = DBContext.getConnection();
-             PreparedStatement preparedStatement = con.prepareStatement(query)) {
-            
+        try ( Connection con = DBContext.getConnection();  PreparedStatement preparedStatement = con.prepareStatement(query)) {
+
             // Set the mentorID parameter in the PreparedStatement
             preparedStatement.setInt(1, mentorID);
 
-            try (ResultSet rs = preparedStatement.executeQuery()) {
+            try ( ResultSet rs = preparedStatement.executeQuery()) {
                 while (rs.next()) {
                     MentorSchedule mentorSchedule = new MentorSchedule();
                     mentorSchedule.setId(rs.getInt("MentorScheduleID"));
                     // Fetch and set mentor details
                     Mentor mentor = mentorDAO.getById(rs.getInt("MentorID"));
                     mentorSchedule.setMentor(mentor);
-                    
+
                     // Fetch and set slot details
                     Slot slot = slotDAO.getByID(rs.getInt("SlotID"));
                     mentorSchedule.setSlot(slot);
-                    
+
                     mentorSchedule.setSheduleStatus(SheduleStatus.valueOf(rs.getString("status")));
                     // Add to the list
                     mentorSchedules.add(mentorSchedule);
@@ -54,11 +53,43 @@ public class MentorScheduleDAO extends DBContext {
         return mentorSchedules;
     }
 
+    public MentorSchedule getMentorSchedulesByID(int id) {
+        MentorDAO mentorDAO = new MentorDAO();
+        SlotDAO slotDAO = new SlotDAO();
+
+        // Using try-with-resources for auto-closing the resources
+        String query = "SELECT * FROM Mentor_Schedule WHERE MentorScheduleID = ?";
+
+        try ( Connection con = DBContext.getConnection();  PreparedStatement preparedStatement = con.prepareStatement(query)) {
+
+            // Set the mentorID parameter in the PreparedStatement
+            preparedStatement.setInt(1, id);
+
+            try ( ResultSet rs = preparedStatement.executeQuery()) {
+                while (rs.next()) {
+                    MentorSchedule mentorSchedule = new MentorSchedule();
+                    mentorSchedule.setId(rs.getInt("MentorScheduleID"));
+                    // Fetch and set mentor details
+                    Mentor mentor = mentorDAO.getById(rs.getInt("MentorID"));
+                    mentorSchedule.setMentor(mentor);
+
+                    // Fetch and set slot details
+                    Slot slot = slotDAO.getByID(rs.getInt("SlotID"));
+                    mentorSchedule.setSlot(slot);
+
+                    mentorSchedule.setSheduleStatus(SheduleStatus.valueOf(rs.getString("status")));
+                    // Add to the list
+                    return mentorSchedule;
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+        return null;
+    }
+
     public static void main(String[] args) {
         MentorScheduleDAO dao = new MentorScheduleDAO();
-        List<MentorSchedule> schedules = dao.getMentorSchedules(2);
-        for (MentorSchedule schedule : schedules) {
-            System.out.println(schedule);
-        }
+        System.out.println(dao.getMentorSchedulesByID(1));
     }
 }

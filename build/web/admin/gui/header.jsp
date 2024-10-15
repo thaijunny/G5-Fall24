@@ -261,6 +261,12 @@
                             </a>
                         </li>
                         <li>
+                            <a href="manage-request" class="ttr-material-button">
+                                <span class="ttr-icon"><i class="ti-book"></i></span>
+                                <span class="ttr-label">Request Management</span>
+                            </a>
+                        </li>
+                        <li>
                             <a href="manage-skill" class="ttr-material-button">
                                 <span class="ttr-icon"><i class="ti-book"></i></span>
                                 <span class="ttr-label">Skills</span>

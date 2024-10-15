@@ -9,6 +9,7 @@ package model;
  * @author ADMIN
  */
 public class RequestSlot {
+    private int id;
     private Request request;
     private MentorSchedule mentorSchedule;
 
@@ -29,6 +30,14 @@ public class RequestSlot {
 
     public void setMentorSchedule(MentorSchedule mentorSchedule) {
         this.mentorSchedule = mentorSchedule;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
     }
     
     
